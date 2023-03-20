@@ -32,9 +32,11 @@ class Messages extends StatelessWidget {
           reverse: true, //아래위치에서 부터 출력
           itemCount: chatDocs.length,
           itemBuilder: (context, index) {
-            return ChatBubble(
+            return ChatBubbles(
               chatDocs[index]['text'],
               chatDocs[index]['userID'].toString() == user!.uid, //내가 쓴건지 확인 boolean
+              chatDocs[index]['userName'],
+              chatDocs[index]['userImage'],
             );
           },
         );

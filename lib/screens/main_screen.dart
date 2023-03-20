@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:yummy_chat/add_image/add_image.dart';
 import 'package:yummy_chat/config/palette.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:yummy_chat/screens/chat_screen.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class LoginSignupScreen extends StatefulWidget {
   const LoginSignupScreen({Key? key}) : super(key: key);
@@ -25,6 +29,11 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
   String userName = '';
   String userEmail = '';
   String userPassword = '';
+  File? userPickedImage;
+
+  void pickedImage(File image) {
+    userPickedImage = image;
+  }
 
   void _tryValidation() {
     //사용자가 텍스트 폼필드에 입력한 정보의 유효성 확인
@@ -33,6 +42,21 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
     if (isValid) {
       _formKey.currentState!.save(); //유효하면 폼전체의 state 값을 저장
     }
+  }
+
+  //사진 등록 팝업창
+  void showAlert(BuildContext context) {
+    //팝업창이므로 호출되면 위젯트리에 삽입돼야함
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          child: AddImage(
+              pickedImage), //메서드를 실행시키는것이 아니라 메서드의 위치를 가리키고 있는 포인터만을 전달 = 메서드의 위치 저장
+        );
+      },
+    );
   }
 
   @override
@@ -177,19 +201,38 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                               child: Column(
                                 //로그인, 사인업 밑줄을 위해 column
                                 children: [
-                                  Text(
-                                    'SIGNUP',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: isSignupScreen
-                                          ? Palette.activeColor
-                                          : Palette.textColor1,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'SIGNUP',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: isSignupScreen
+                                              ? Palette.activeColor
+                                              : Palette.textColor1,
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 15,
+                                      ),
+                                      if (isSignupScreen)
+                                        GestureDetector(
+                                          onTap: () {
+                                            showAlert(context);
+                                          },
+                                          child: Icon(
+                                            Icons.image,
+                                            color: isSignupScreen
+                                                ? Colors.cyan
+                                                : Colors.grey[300],
+                                          ),
+                                        )
+                                    ],
                                   ),
                                   if (isSignupScreen)
                                     Container(
-                                      margin: EdgeInsets.only(top: 3),
+                                      margin: EdgeInsets.fromLTRB(0, 3, 35, 0),
                                       height: 2,
                                       width: 55,
                                       color: Colors.orange,
@@ -487,21 +530,45 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                         });
                         //signup 기능
                         if (isSignupScreen) {
+                          if (userPickedImage == null) {
+                            setState(() {
+                              showSpinner = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Please pick your image'),
+                                backgroundColor: Colors.blue,
+                              ),
+                            );
+                            return;
+                          }
                           _tryValidation(); //유효성 체크 함수
                           try {
+                            //새 유저 등록
                             final newUser = await _authentication
                                 .createUserWithEmailAndPassword(
                               email: userEmail,
                               password: userPassword,
                             );
 
+                            //스토리지에 등록
+                            final refImage= FirebaseStorage.instance
+                                .ref()
+                                .child('picked_image')
+                                .child(newUser.user!.uid + '.png');
+
+                            await refImage.putFile(userPickedImage!);
+                            final url= await refImage.getDownloadURL(); //스토리지에 저장된 이미지 url을 할당
+                            
                             //새로운 유저 등록 완료하면 컬렉션에 저장하기
                             await FirebaseFirestore.instance
                                 .collection('user')
                                 .doc(newUser.user!.uid)
-                                .set({ //데이터는 Map 형태
+                                .set({
+                              //데이터는 Map 형태
                               'userName': userName,
                               'email': userEmail,
+                              'picked_image': url,
                             });
 
                             if (newUser.user != null) {
@@ -518,13 +585,19 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                             }
                           } catch (e) {
                             print(e);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content:
-                                    Text('Please check your email or password'),
-                                backgroundColor: Colors.blue,
-                              ),
-                            );
+                            if (mounted) {
+                              //위젯이 사라지는 순간 false가 됨
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      'Please check your email or password'),
+                                  backgroundColor: Colors.blue,
+                                ),
+                              );
+                              setState(() {
+                                showSpinner = false;
+                              });
+                            }
                           }
                         }
                         //login 기능
