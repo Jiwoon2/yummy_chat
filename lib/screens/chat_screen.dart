@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:yummy_chat/chatting/chat/message.dart';
+import 'package:yummy_chat/chatting/chat/new_message.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -51,7 +53,18 @@ class _ChatScreenState extends State<ChatScreen> {
           )
         ],
       ),
-      body: StreamBuilder(
+      body: Container(
+        child: Column(
+          children: [
+            Expanded(
+              child: Messages(),
+            ),
+            NewMessage(),
+          ],
+        ),
+      ),
+
+      /*body: StreamBuilder(
         //snapshots()으로 스트림을 전달함 -> 스트림 반환해줘서 데이터가 바뀔때마다 새로운 밸류 값을 전달해줌
         stream: FirebaseFirestore.instance
             .collection('chats/mZPSGYS2Vs5xGjPJ1HeA/message')
@@ -77,7 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
             itemCount: docs.length,
           );
         },
-      ),
+      ),*/
     );
   }
 }
